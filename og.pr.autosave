@@ -1,0 +1,260 @@
+SYSTEM dosif;
+    /* CIF TEXT (671, 3), (356, 418) */
+    -- Text area for declarations and comments
+use dv comment 'dataview-uniq.asn';
+--use dv2 comment 'dataview2.asn';
+signal iterate(MyInteger);
+signal setprog(MyInteger);
+signal back;
+signal go;
+signal dummy;
+signal panic;
+
+signal done;
+signal tout;
+signal wrng;
+signal full_load;
+    /* CIF ENDTEXT */
+    CHANNEL c
+        FROM ENV TO dosif WITH dummy,
+iterate,
+go,
+setprog,
+back,
+panic;
+        FROM dosif TO ENV WITH done,
+tout,
+wrng,
+full_load;
+    ENDCHANNEL;
+    BLOCK dosif;
+        SIGNALROUTE r
+            FROM ENV TO dosif WITH dummy,
+iterate,
+go,
+setprog,
+back,
+panic;
+            FROM dosif TO ENV WITH done,
+tout,
+wrng,
+full_load;
+        CONNECT c AND r;
+        /* CIF PROCESS (138, 4), (124, 71) */
+        PROCESS dosif;
+            /* CIF TEXT (1088, 511), (234, 657) */
+            -- Text area for declarations and
+-- comments
+dcl qty MyInteger;
+dcl stage StageTy;
+dcl ProgId MyInteger;
+dcl progStages StageArrayTy;
+dcl weightAcum Weight;
+dcl curWeight Weight;
+
+dcl ZONE_2_CLEAR BoolSensor;
+dcl ZONE_3_CLEAR BoolSensor;
+
+dcl CTRL_PIN_DRAIN  StageTy ;
+dcl CTRL_PIN_ZONE_2      StageTy ;
+dcl CTRL_PIN_ZONE_3      StageTy ;
+
+-- TIMERS
+Timer tmrUser;
+Timer tmrStage;
+Timer tmrZone2;
+Timer tmrZone3;
+
+procedure get_stages;
+fpar in/out progid MyInteger, 
+progdata StageArrayTy;
+external;
+
+procedure dout_set;
+fpar in/out pin StageTy;
+external;
+procedure dout_rst;
+fpar in/out pin StageTy;
+external;
+
+procedure dout_init;
+external;
+            /* CIF ENDTEXT */
+            /* CIF PROCEDURE (555, 252), (70, 35) */
+            PROCEDURE PANIC;
+            ENDPROCEDURE;
+            /* CIF START (673, 443), (30, 15) */
+            START;
+                /* CIF NEXTSTATE (667, 478), (42, 25) */
+                NEXTSTATE init;
+            /* CIF STATE (416, 488), (85, 25) */
+            STATE exception;
+                /* CIF INPUT (313, 539), (39, 25) */
+                INPUT go;
+                    /* CIF DECISION (293, 606), (79, 50) */
+                    DECISION stage>=6;
+                            /* CIF ANSWER (221, 676), (54, 25) */
+                            (false):
+                                /* CIF PROCEDURECALL (163, 721), (170, 25) */
+                                CALL set_timer(60,tmrStage);
+                                /* CIF NEXTSTATE (213, 766), (70, 25) */
+                                NEXTSTATE working;
+                            /* CIF ANSWER (415, 676), (51, 25) */
+                            (true):
+                                /* CIF PROCEDURECALL (352, 721), (177, 25) */
+                                CALL set_timer(600,tmrStage);
+                                /* CIF NEXTSTATE (414, 766), (53, 25) */
+                                NEXTSTATE drain;
+                    ENDDECISION;
+                /* CIF INPUT (539, 542), (52, 25) */
+                INPUT back;
+                    /* CIF NEXTSTATE (544, 587), (42, 25) */
+                    NEXTSTATE init;
+            ENDSTATE;
+            /* CIF STATE (498, 879), (68, 35) */
+            STATE idle;
+                /* CIF INPUT (178, 934), (120, 25) */
+                INPUT setprog(ProgId);
+                    /* CIF PROCEDURECALL (128, 979), (220, 25) */
+                    CALL get_stages( ProgId, progStages);
+                    /* CIF PROCEDURECALL (152, 1024), (172, 25) */
+                    CALL set_timer(120 ,tmrUser);
+                /* CIF INPUT (540, 939), (52, 25) */
+                INPUT back;
+                    /* CIF NEXTSTATE (545, 984), (42, 25) */
+                    NEXTSTATE init;
+                /* CIF INPUT (396, 937), (95, 25) */
+                INPUT iterate(qty);
+                    /* CIF PROCEDURECALL (357, 982), (172, 25) */
+                    CALL set_timer(120 ,tmrUser);
+                    /* CIF NEXTSTATE (420, 1027), (46, 25) */
+                    NEXTSTATE idle;
+                /* CIF INPUT (627, 935), (53, 25) */
+                INPUT go;
+                    /* CIF NEXTSTATE (602, 980), (103, 25) */
+                    NEXTSTATE pre_iteration;
+                /* CIF PROVIDED (715, 934), (73, 35) */
+                PROVIDED tmrUser;
+                    /* CIF NEXTSTATE (730, 984), (42, 25) */
+                    NEXTSTATE init;
+            ENDSTATE;
+            /* CIF STATE (1160, 163), (70, 35) */
+            STATE working;
+                /* CIF PROVIDED (976, 218), (226, 25) */
+                PROVIDED curWeight >= progStages( stage );
+                    /* CIF PROCEDURECALL (1017, 263), (143, 25) */
+                    CALL dout_rst(stage);
+                    /* CIF DECISION (1050, 308), (78, 37) */
+                    DECISION stage < 6
+                    /* CIF COMMENT (1134, 305), (96, 42) */
+                    COMMENT 'Dosificación
+Completa ?';
+                            /* CIF ANSWER (921, 366), (70, 25) */
+                            (true):
+                                /* CIF TASK (897, 411), (117, 25) */
+                                TASK stage:=stage+1;
+                                /* CIF PROCEDURECALL (895, 451), (121, 25) */
+                                CALL dout_set(stage);
+                                /* CIF PROCEDURECALL (871, 496), (170, 25) */
+                                CALL set_timer(60,tmrStage);
+                                /* CIF NEXTSTATE (921, 536), (70, 25) */
+                                NEXTSTATE working;
+                            /* CIF ANSWER (1105, 366), (68, 25) */
+                            (false):
+                                /* CIF PROCEDURECALL (1050, 406), (177, 25) */
+                                CALL set_timer(600,tmrStage);
+                                /* CIF NEXTSTATE (1112, 446), (53, 25) */
+                                NEXTSTATE drain;
+                    ENDDECISION;
+                /* CIF PROVIDED (1242, 219), (81, 25) */
+                PROVIDED tmrStage;
+                    /* CIF OUTPUT (1257, 264), (50, 25) */
+                    OUTPUT tout;
+                    /* CIF NEXTSTATE (1240, 304), (85, 25) */
+                    NEXTSTATE exception;
+            ENDSTATE;
+            /* CIF STATE (704, 17), (53, 25) */
+            STATE drain;
+                /* CIF PROVIDED (409, 62), (113, 25) */
+                PROVIDED curWeight <= 0;
+                    /* CIF PROCEDURECALL (373, 107), (184, 25) */
+                    CALL dout_rst(CTRL_PIN_DRAIN);
+                    /* CIF OUTPUT (427, 152), (76, 25) */
+                    OUTPUT full_load;
+                    /* CIF NEXTSTATE (414, 192), (103, 25) */
+                    NEXTSTATE pre_iteration;
+                /* CIF PROVIDED (619, 64), (81, 25) */
+                PROVIDED tmrStage;
+                    /* CIF PROCEDURECALL (567, 109), (184, 25) */
+                    CALL dout_rst(CTRL_PIN_DRAIN);
+                    /* CIF OUTPUT (634, 149), (50, 25) */
+                    OUTPUT tout;
+                    /* CIF NEXTSTATE (617, 189), (85, 25) */
+                    NEXTSTATE exception;
+                /* CIF PROVIDED (797, 62), (115, 25) */
+                PROVIDED ZONE_2_CLEAR;
+                    /* CIF PROCEDURECALL (761, 107), (187, 25) */
+                    CALL dout_set(CTRL_PIN_DRAIN);
+                    /* CIF PROCEDURECALL (766, 152), (177, 25) */
+                    CALL set_timer(600,tmrStage);
+            ENDSTATE;
+            /* CIF STATE (57, 30), (103, 25) */
+            STATE pre_iteration;
+                /* CIF PROVIDED (86, 75), (44, 25) */
+                PROVIDED qty;
+                    /* CIF DECISION (79, 120), (58, 36) */
+                    DECISION qty>0;
+                            /* CIF ANSWER (0, 177), (54, 25) */
+                            (false):
+                                /* CIF OUTPUT (0, 222), (54, 25) */
+                                OUTPUT done;
+                                /* CIF NEXTSTATE (6, 262), (42, 25) */
+                                NEXTSTATE init;
+                            /* CIF ANSWER (151, 177), (51, 25) */
+                            (true):
+                                /* CIF TASK (117, 222), (119, 59) */
+                                TASK stage:=0,
+weightAcum:=0,
+qty:=qty-1;
+                                /* CIF DECISION (123, 301), (106, 50) */
+                                DECISION curWeight = 0;
+                                        /* CIF ANSWER (88, 371), (54, 25) */
+                                        (false):
+                                            /* CIF OUTPUT (89, 416), (52, 25) */
+                                            OUTPUT wrng;
+                                            /* CIF NEXTSTATE (63, 456), (103, 25) */
+                                            NEXTSTATE pre_iteration;
+                                        /* CIF ANSWER (211, 371), (51, 25) */
+                                        (true):
+                                            /* CIF PROCEDURECALL (176, 416), (121, 25) */
+                                            CALL dout_set(stage);
+                                ENDDECISION;
+                                /* CIF PROCEDURECALL (92, 496), (169, 25) */
+                                CALL set_timer(60,tmrstage);
+                                /* CIF NEXTSTATE (141, 536), (70, 25) */
+                                NEXTSTATE working;
+                    ENDDECISION;
+            ENDSTATE;
+            /* CIF STATE (566, 313), (29, 25) */
+            STATE *;
+                /* CIF INPUT (553, 358), (55, 25) */
+                INPUT panic;
+                    /* CIF PROCEDURECALL (550, 403), (60, 25) */
+                    CALL PANIC;
+                    /* CIF NEXTSTATE (538, 448), (85, 25) */
+                    NEXTSTATE exception;
+            ENDSTATE;
+            /* CIF STATE (667, 478), (42, 25) */
+            STATE init;
+                /* CIF INPUT (654, 524), (67, 25) */
+                INPUT dummy;
+                    /* CIF PROCEDURECALL (645, 569), (85, 25) */
+                    CALL dout_init;
+                    /* CIF PROCEDURECALL (601, 616), (172, 25) */
+                    CALL set_timer(120 ,tmrUser);
+                    /* CIF NEXTSTATE (664, 656), (46, 25) */
+                    NEXTSTATE idle;
+            ENDSTATE;
+        ENDPROCESS dosif;
+    ENDBLOCK;
+ENDSYSTEM;
